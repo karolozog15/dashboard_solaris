@@ -59,7 +59,7 @@ pip install streamlit pandas plotly pyodbc
 ```
 
 ## Uruchomienie
-Jeżeli wszystkie pliki w jednym katalogu wraz z `.vev` można uruchomić przez `double-click` pliku 'start.vbs'
+Jeżeli wszystkie pliki w jednym katalogu wraz z `.vev` można uruchomić przez `double-click` pliku `start.vbs`, lub z terminala przez:
 
 ```bash
 streamlit run app.py
