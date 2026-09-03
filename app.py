@@ -46,12 +46,6 @@ if not available_databases:
     st.warning("Na serwerze nie znaleziono żadnych baz danych.")
     st.stop()
 
-# Ustawiamy wartość domyślną PRZED stworzeniem widgetu, bezpośrednio w
-# session_state. Robimy to tylko, gdy klucz jeszcze nie istnieje (czyli
-# przy pierwszym uruchomieniu tej sesji przeglądarki) albo gdy istniejąca
-# wartość jest nieprawidłowa (np. baza zniknęła z serwera). Dzięki temu
-# selectbox nie potrzebuje parametru `index` — po prostu odczyta gotową
-# wartość z session_state, więc nic jej nie może nadpisać ani zignorować.
 if st.session_state.get("selected_database") not in available_databases:
     st.session_state.selected_database = (
         DEFAULT_DB_NAME if DEFAULT_DB_NAME in available_databases else available_databases[0]
@@ -139,10 +133,40 @@ for idx, series_id in enumerate(st.session_state.series_ids):
                 format_func=lambda v: get_variable_label(v, variable_names),
                 key=f"var_{series_id}",
             )
+            st.markdown("**Zakres osi Y**")
+            y_auto = st.checkbox(
+                "Automatyczny zakres Y",
+                value=stored.get("y_auto",True),
+                key=f"y_auto_{series_id}",
+            )
+
+            if y_auto:
+                y_min = None
+                y_max = None
+            else:
+                col_y1, col_y2 = st.columns(2)
+
+                with col_y1:
+                    y_min = st.number_input(
+                        "Min Y",
+                        value=float(stored.get("y_min") if stored.get("y_min") is not None else 0.0),
+                        key=f"y_min_{series_id}",
+                    )
+
+                with col_y2:
+                    y_max = st.number_input(
+                        "Max Y",
+                        value=float(stored.get("y_max") if stored.get("y_max") is not None else 100.0),
+                        key=f"y_max_{series_id}",
+                    )
+
 
             st.session_state.series_data[series_id] = {
                 "table": table_choice,
                 "variable": var_choice,
+                "y_auto": y_auto,
+                "y_min": y_min,
+                "y_max": y_max,
             }
 
             series_configs.append({
@@ -151,6 +175,9 @@ for idx, series_id in enumerate(st.session_state.series_ids):
                 "table": s_table,
                 "variable": var_choice,
                 "label": get_variable_label(var_choice, variable_names),
+                "y_auto": y_auto,
+                "y_min": y_min,
+                "y_max": y_max,
             })
 
         if len(st.session_state.series_ids) > 1:
