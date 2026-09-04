@@ -2,20 +2,19 @@
 
 from datetime import timezone, timedelta
 
-LOCAL_TZ = timezone(timedelta(hours=1))
+LOCAL_TZ = timezone(timedelta(hours=1))		# Lokalna strefa czasowa używana w aplikacji (UTC+1)
+MAX_PLOT_POINTS = 10_000			# Maksymalna liczba przedziałów, na które dzielony jest zaznaczony zakres czasu
+DATA_CACHE_TTL = 300				# Czas przechowywania w pamięci podręcznej pobranych danych z bazy (5 minut)
+VARIABLE_CACHE_TTL = 600			# Czas przechowywania w pamięci podręcznej listy zmiennych (10 minut)
+TABLE_CACHE_TTL = 600				# Czas przechowywania w pamięci podręcznej listy tabel (10 minut)
+NAZWY_TABLE = "dbo.WODA_VARIABLES"		# Tabela zawierająca nazwy zmiennych używanych w aplikacji
+MAX_SERIES = 4					# Maksymalna liczba serii możliwych do dodania na wykresie
+AXIS_GAP = 0.05					# Odstęp pomiędzy osiami Y dla poszczególnych serii
+MAX_DOMAIN_START = 0.45				# Maksymalny początek obszaru wykresu przeznaczonego na osie Y
 
-MAX_PLOT_POINTS = 20_000
-DATA_CACHE_TTL = 300
-VARIABLE_CACHE_TTL = 600
-TABLE_CACHE_TTL = 600
-NAZWY_TABLE = "dbo.WODA_VARIABLES"
-MAX_SERIES = 8
-AXIS_GAP = 0.05
-MAX_DOMAIN_START = 0.45
-
-DB_SERVER = r"ZENON14WIN\ZENON_2022"
-DEFAULT_DB_NAME = "Archives"  # sugerowany wybór domyślny w selectboxie baz
-DB_DRIVER = "ODBC Driver 17 for SQL Server"
+DB_SERVER = r"ZENON14WIN\ZENON_2022"		# Adres serwera SQL Server
+DEFAULT_DB_NAME = "Archives"			# Domyślnie wybierana baza danych
+DB_DRIVER = "ODBC Driver 17 for SQL Server"	# Sterownik ODBC używany do połączenia z SQL Server
 
 VARIABLE_COLORS = [
     "#00E5FF", "#FF4B4B", "#00FF88", "#FFA500", "#A855F7", "#FFD700",
