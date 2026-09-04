@@ -27,14 +27,10 @@ st.set_page_config(page_title="Wizualizacja bazy danych", page_icon="📈", layo
 
 init_session_state()
 
-st.title("📈 Wizualizacja")
-st.caption("Wizualizacja danych z bazy sql: AVG + MIN + MAX.")
+st.title("📈 Dashboard - archives data")
+st.caption("Wizualizacja danych archiwalnych z bazy sql")
 
-
-# ---------------------------------------------------------------------------
-# Wybór bazy danych
-# ---------------------------------------------------------------------------
-
+#pobrani baz danych
 try:
     available_databases = load_databases()
 except Exception as e:
@@ -46,11 +42,11 @@ if not available_databases:
     st.warning("Na serwerze nie znaleziono żadnych baz danych.")
     st.stop()
 
+#ustawienie default
 if st.session_state.get("selected_database") not in available_databases:
-    st.session_state.selected_database = (
-        DEFAULT_DB_NAME if DEFAULT_DB_NAME in available_databases else available_databases[0]
-    )
+    st.session_state.selected_database = DEFAULT_DB_NAME if DEFAULT_DB_NAME in available_databases else available_databases[0]
 
+#wybor bazy z listy
 st.sidebar.header("⚙️ Ustawienia")
 selected_database = st.sidebar.selectbox(
     "🗄️ Baza danych",
@@ -58,14 +54,13 @@ selected_database = st.sidebar.selectbox(
     key="selected_database",
 )
 
-# Zmiana bazy unieważnia wybrane wcześniej tabele/zmienne (mogą nie istnieć
-# w nowej bazie) — resetujemy skonfigurowane serie do stanu wyjściowego.
+#reset przy zmianie bazy 
 if selected_database != st.session_state._last_database:
     if st.session_state._last_database is not None:
         reset_series()
     st.session_state._last_database = selected_database
 
-
+#pobranie listy tabel w danej bazie 
 try:
     tables_df = load_tables(selected_database)
 except Exception as e:
@@ -77,6 +72,7 @@ if tables_df.empty:
     st.warning("W wybranej bazie nie znaleziono żadnych tabel.")
     st.stop()
 
+#pobranie nazw zmiennych jezeli w bazie jest tabela variable->Name (NAZWY_TABLE z config.py)
 try:
     variable_names = load_variable_names(selected_database)
 except Exception:
@@ -84,35 +80,38 @@ except Exception:
     st.sidebar.warning("Nie udało się pobrać nazw zmiennych — pokazuję same ID.")
 
 
-# ---------------------------------------------------------------------------
-# Serie danych
-# ---------------------------------------------------------------------------
-
+# Serie danych danej tabeli
 table_options = [f"{row.TABLE_SCHEMA}.{row.TABLE_NAME}" for row in tables_df.itertuples()]
 
 st.sidebar.subheader("📊 Serie danych")
-st.sidebar.caption(
-    "Dodaj jedną lub więcej zmiennych. Każda seria może pochodzić z innej tabeli."
-)
-
+st.sidebar.caption("Dodaj jedną lub więcej zmiennych. Każda seria może pochodzić z innej tabeli.")
 series_configs = []
 series_to_remove = None
 
 for idx, series_id in enumerate(st.session_state.series_ids):
     with st.sidebar.expander(f"Seria {idx + 1}", expanded=(idx == 0)):
-        stored = st.session_state.series_data.get(series_id, {})
 
+        #pobiera wczesniej zapisana rzeczy co bylo w tej serii
+        stored = st.session_state.series_data.get(series_id, {})
+	
+	#pobiera wczesniej zapisana tabele
         default_table = stored.get("table")
+        
+	# Jeżeli wcześniej była wybrana tabela i nadal znajduje się na liście,
+	# bierze jej indeks. Jeżeli nie, wybiera pierwszą tabelę.
         table_index = table_options.index(default_table) if default_table in table_options else 0
 
+	#wybor z tabeli z listy
         table_choice = st.selectbox(
             "Tabela",
             table_options,
             index=table_index,
             key=f"table_{series_id}",
         )
+	
         s_schema, s_table = table_choice.split(".", 1)
 
+	#pobranie listy variables z danej tabeli
         try:
             s_variables = load_variables(selected_database, s_schema, s_table)
         except Exception as e:
@@ -123,9 +122,11 @@ for idx, series_id in enumerate(st.session_state.series_ids):
         if not s_variables:
             st.warning(f"Tabela `{table_choice}` nie zawiera żadnych VARIABLE.")
         else:
+	    #podobnie jak wczesnije pobiera infromacje wcznesniejsze i ustawiwa varibale a jak nie ma wczesniejszcych to zerowa
             default_var = stored.get("variable")
             var_index = s_variables.index(default_var) if default_var in s_variables else 0
-
+	    
+            #wybor konkertnej zminnej
             var_choice = st.selectbox(
                 "Zmienna",
                 s_variables,
@@ -133,6 +134,8 @@ for idx, series_id in enumerate(st.session_state.series_ids):
                 format_func=lambda v: get_variable_label(v, variable_names),
                 key=f"var_{series_id}",
             )
+	    
+            #wybor jak ma byc dopasowywyan os y
             st.markdown("**Zakres osi Y**")
             y_auto = st.checkbox(
                 "Automatyczny zakres Y",
@@ -160,7 +163,7 @@ for idx, series_id in enumerate(st.session_state.series_ids):
                         key=f"y_max_{series_id}",
                     )
 
-
+            #Ustawienie infomracji o danej serii
             st.session_state.series_data[series_id] = {
                 "table": table_choice,
                 "variable": var_choice,
@@ -168,7 +171,8 @@ for idx, series_id in enumerate(st.session_state.series_ids):
                 "y_min": y_min,
                 "y_max": y_max,
             }
-
+   
+            #potrzebne potem do ladwaonia danych
             series_configs.append({
                 "id": series_id,
                 "schema": s_schema,
@@ -179,15 +183,18 @@ for idx, series_id in enumerate(st.session_state.series_ids):
                 "y_min": y_min,
                 "y_max": y_max,
             })
-
+	
+	#jak jest wiecej niz 1 seria i klkinemy przycisk to zapisujemy ktora seria usunac
         if len(st.session_state.series_ids) > 1:
             if st.button("🗑️ Usuń tę serię", key=f"remove_{series_id}"):
                 series_to_remove = series_id
 
+#usuwanie kliknietych serii
 if series_to_remove is not None:
     remove_series(series_to_remove)
     st.rerun()
 
+#maksymalna ilosc serii
 if len(st.session_state.series_ids) < MAX_SERIES:
     if st.sidebar.button("➕ Dodaj kolejną serię", use_container_width=True):
         add_series(MAX_SERIES)
@@ -200,12 +207,9 @@ if not series_configs:
     st.stop()
 
 
-# ---------------------------------------------------------------------------
 # Zakres czasu
-# ---------------------------------------------------------------------------
-
 st.sidebar.subheader("⏱️ Zakres czasu")
-
+#informacje na panelu
 st.sidebar.write(
     f"**Zapamiętany zakres:** "
     f"{st.session_state.time_start_original.strftime('%Y-%m-%d %H:%M:%S')} → "
@@ -222,53 +226,45 @@ if st.session_state.zoom_active:
         undo_zoom()
         st.rerun()
 
-auto_zoom_enabled = st.sidebar.checkbox(
-    "🔍 Automatyczne dopasowanie zakresu do zoomu na wykresie",
-    value=False,
-    key="auto_zoom_enabled",
-    help=(
-        "Gdy włączone: przeciągnij myszką po wykresie, aby zaznaczyć interesujący "
-        "Cię fragment. Zaznaczony przedział czasu zostanie zapisany jako nowy "
-        "zakres (\"czas start\"/\"czas end\") i aplikacja pobierze dla niego dane "
-        "z bazy na nowo, zamiast tylko powiększać już wczytane punkty."
-    ),
+
+
+#Fragment w html aby ikonek orygianlnych uzyc 
+
+st.sidebar.markdown("**Opis funkcji:** (prawy górny róg wykresu)")
+zoom_icon_svg = """
+<svg viewBox="0 0 1000 1000" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
+    <path d="m1000-25l-250 251c40 63 63 138 63 218 0 224-182 406-407 406-224 0-406-182-406-406s183-406 407-406c80 0 155 22 218 62l250-250 125 125z m-812 250l0 438 437 0 0-438-437 0z m62 375l313 0 0-312-313 0 0 312z"
+          transform="matrix(1 0 0 -1 0 850)"
+          style="fill: rgba(255, 255, 255, 0.7);" />
+</svg>
+"""
+box_select_icon_svg = """
+<svg viewBox="0 0 1000 1000" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
+    <path d="m0 850l0-143 143 0 0 143-143 0z m286 0l0-143 143 0 0 143-143 0z m285 0l0-143 143 0 0 143-143 0z m286 0l0-143 143 0 0 143-143 0z m-857-286l0-143 143 0 0 143-143 0z m857 0l0-143 143 0 0 143-143 0z m-857-285l0-143 143 0 0 143-143 0z m857 0l0-143 143 0 0 143-143 0z m-857-286l0-143 143 0 0 143-143 0z m286 0l0-143 143 0 0 143-143 0z m285 0l0-143 143 0 0 143-143 0z m286 0l0-143 143 0 0 143-143 0z"
+          transform="matrix(1 0 0 -1 0 850)"
+          style="fill: rgba(255, 255, 255, 0.7);" />
+</svg>
+"""
+st.sidebar.markdown(
+    f"""
+    <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.9rem;">
+        <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <div style="flex-shrink: 0; margin-top: 2px;">{zoom_icon_svg}</div>
+            <span><b>Zoom</b> — Szybkie przybliżenie - bez pobierania danych.</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <div style="flex-shrink: 0; margin-top: 2px;">{box_select_icon_svg}</div>
+            <span>
+                <b>Box select</b> — Zaznaczony fragment zostanie zapisany jako nowy
+                zakres czasu i dane zostaną pobrane na nowo z bazy z większą dokładnością.
+            </span>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
-if auto_zoom_enabled:
-    st.sidebar.markdown("**Opis funkcji:** (prawy górny róg wykresu)")
-    zoom_icon_svg = """
-    <svg viewBox="0 0 1000 1000" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
-        <path d="m1000-25l-250 251c40 63 63 138 63 218 0 224-182 406-407 406-224 0-406-182-406-406s183-406 407-406c80 0 155 22 218 62l250-250 125 125z m-812 250l0 438 437 0 0-438-437 0z m62 375l313 0 0-312-313 0 0 312z"
-              transform="matrix(1 0 0 -1 0 850)"
-              style="fill: rgba(255, 255, 255, 0.7);" />
-    </svg>
-    """
-    box_select_icon_svg = """
-    <svg viewBox="0 0 1000 1000" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
-        <path d="m0 850l0-143 143 0 0 143-143 0z m286 0l0-143 143 0 0 143-143 0z m285 0l0-143 143 0 0 143-143 0z m286 0l0-143 143 0 0 143-143 0z m-857-286l0-143 143 0 0 143-143 0z m857 0l0-143 143 0 0 143-143 0z m-857-285l0-143 143 0 0 143-143 0z m857 0l0-143 143 0 0 143-143 0z m-857-286l0-143 143 0 0 143-143 0z m286 0l0-143 143 0 0 143-143 0z m285 0l0-143 143 0 0 143-143 0z m286 0l0-143 143 0 0 143-143 0z"
-              transform="matrix(1 0 0 -1 0 850)"
-              style="fill: rgba(255, 255, 255, 0.7);" />
-    </svg>
-    """
-    st.sidebar.markdown(
-        f"""
-        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.9rem;">
-            <div style="display: flex; gap: 8px; align-items: flex-start;">
-                <div style="flex-shrink: 0; margin-top: 2px;">{zoom_icon_svg}</div>
-                <span><b>Zoom</b> — Szybkie przybliżenie - bez pobierania danych.</span>
-            </div>
-            <div style="display: flex; gap: 8px; align-items: flex-start;">
-                <div style="flex-shrink: 0; margin-top: 2px;">{box_select_icon_svg}</div>
-                <span>
-                    <b>Box select</b> — Zaznaczony fragment zostanie zapisany jako nowy
-                    zakres czasu i dane zostaną pobrane na nowo z bazy z większą dokładnością.
-                </span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
+#Wybor trybu zakresu czasu do pobrania danych
 if st.session_state.zoom_active:
     st.sidebar.info(
         "Aktualny zakres pochodzi z zoomu na wykresie. "
@@ -352,9 +348,7 @@ if start_time > end_time:
     st.stop()
 
 
-# ---------------------------------------------------------------------------
 # Odświeżanie
-# ---------------------------------------------------------------------------
 
 st.sidebar.subheader("🔄 Odświeżanie")
 
@@ -372,9 +366,7 @@ if st.sidebar.button("🔄 Odśwież teraz", use_container_width=True):
     st.rerun()
 
 
-# ---------------------------------------------------------------------------
 # Wczytanie danych i wykres
-# ---------------------------------------------------------------------------
 
 start_timestamp = int(start_time.timestamp())
 end_timestamp = int(end_time.timestamp())
@@ -382,6 +374,7 @@ end_timestamp = int(end_time.timestamp())
 loaded_series = []
 for s in series_configs:
     try:
+	#wczytanie danych konkretnych serii wybranych wczesniej
         df_s = load_data(
             selected_database, s["schema"], s["table"], s["variable"],
             start_timestamp, end_timestamp,
@@ -401,6 +394,7 @@ for i, s in enumerate(loaded_series):
 if not loaded_series:
     st.stop()
 
+#do opisu nazwy serii
 series_desc = "  |  ".join(
     f"`{s['schema']}.{s['table']}` → `{s['label']}`" for s in loaded_series
 )
@@ -409,9 +403,11 @@ st.info(
     f"⏱️ **Zakres:** `{start_time:%Y-%m-%d %H:%M:%S}` → `{end_time:%Y-%m-%d %H:%M:%S}`"
 )
 
+#rysowanie
 chart_fragment = make_chart_fragment(refresh_seconds)
 chart_fragment(loaded_series, start_time, end_time)
 
+#wartrosci liczbowe w tabeli
 with st.expander("📋 Pokaż dane zagregowane"):
     data_tabs = st.tabs([s["label"] for s in loaded_series])
     for tab, s in zip(data_tabs, loaded_series):
