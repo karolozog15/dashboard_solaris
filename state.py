@@ -41,9 +41,6 @@ def init_session_state() -> None:
     if "zoom_active" not in st.session_state:
         st.session_state.zoom_active = False
 
-    # Tryb range_mode zapamiętany DOKŁADNIE w chwili wejścia w zoom (box-select).
-    # Dzięki temu "Cofnij" nie zależy od tego, co dzieje się z bieżącym
-    # range_mode w międzyczasie (dodanie serii, auto-refresh, kolejne rerun'y).
     if "pre_zoom_range_mode" not in st.session_state:
         st.session_state.pre_zoom_range_mode = None
 
@@ -83,29 +80,19 @@ def init_session_state() -> None:
     if "custom_end_clock" not in st.session_state:
         st.session_state.custom_end_clock = st.session_state.time_end_original.time()
 
-    # UWAGA: celowo NIE inicjalizujemy tu "selected_database". Streamlit
-    # ustawia wartość widgetu z klucza w session_state, jeśli klucz już
-    # istnieje — z pominięciem parametru `index`. Gdybyśmy z góry wpisali
-    # tu None, selectbox nigdy nie zastosowałby domyślnego DEFAULT_DB_NAME
-    # ("Archives"), bo próbowałby dopasować None do listy baz. Klucz ma
-    # więc powstać dopiero razem z widgetem w app.py, przy jego pierwszym
-    # renderze — wtedy `index` faktycznie zadziała.
 
     if "_last_database" not in st.session_state:
         st.session_state._last_database = None
+
+    st.session_state.setdefault("cursor_x1", None)
+    st.session_state.setdefault("cursor_x2", None)
+
 
 
 def insert_time(start_time: datetime, end_time: datetime) -> None:
     """
     Zapamiętuje aktualny zakres czasu w odpowiednich widgetach,
     zależnie od aktualnie wybranego range_mode.
-
-    Nie zmienia trybu wyboru zakresu.
-
-    UWAGA: ta funkcja zawsze nadpisuje time_start_original/time_end_original
-    przekazanymi wartościami — dlatego NIE wolno jej wołać z zakresem
-    pochodzącym z zoomu (box-select), bo "zgubi" oryginalny zakres, do
-    którego ma wracać przycisk "Cofnij".
     """
 
     if st.session_state.range_mode == "Ostatnie dyskretne":
@@ -151,10 +138,8 @@ def insert_time(start_time: datetime, end_time: datetime) -> None:
 
 def add_series(max_series: int) -> None:
     if len(st.session_state.series_ids) < max_series:
-        # Jeśli jesteśmy w trybie zoomu, NIE wolno wołać insert_time —
-        # nadpisałoby to time_start_original/time_end_original wartościami
-        # z przybliżenia, psując późniejsze "Cofnij".
         if not st.session_state.zoom_active:
+	    #zapisuje tymczasowo tryb zakresu i potem ustawa go spowrtoem bo sie zmienal przez insert w trybie zoom
             current_range_mode = st.session_state.range_mode
             insert_time(st.session_state.time_start, st.session_state.time_end)
             st.session_state.range_mode = current_range_mode
@@ -169,16 +154,13 @@ def remove_series(series_id: str) -> None:
         st.session_state.range_mode = current_range_mode
 
     st.session_state.series_ids = [s for s in st.session_state.series_ids if s != series_id]
-    # Posprzątaj WSZYSTKIE dane należące do usuwanej serii — w tym jawny
-    # magazyn series_data, nie tylko klucze widgetów.
     st.session_state.series_data.pop(series_id, None)
     st.session_state.pop(f"table_{series_id}", None)
     st.session_state.pop(f"var_{series_id}", None)
 
 
 def reset_series() -> None:
-    """Czyści wszystkie skonfigurowane serie — używane np. po zmianie bazy danych,
-    bo wybrane wcześniej tabele/zmienne mogą nie istnieć w nowej bazie."""
+    """Czyści wszystkie skonfigurowane serie."""
     for series_id in st.session_state.series_ids:
         st.session_state.series_data.pop(series_id, None)
         st.session_state.pop(f"table_{series_id}", None)
@@ -201,9 +183,6 @@ def handle_zoom_box_select(box_x: list) -> bool:
     if new_start > new_end:
         new_start, new_end = new_end, new_start
 
-    # Zapamiętaj tryb TERAZ — zanim zoom_active ukryje radio i zanim
-    # jakikolwiek kolejny rerun zdąży go zmienić. Nie nadpisuj przy
-    # zagnieżdżonym zoomie (zoom w zoomie).
     if not st.session_state.zoom_active:
         st.session_state.pre_zoom_range_mode = st.session_state.range_mode
 
