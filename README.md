@@ -1,4 +1,4 @@
-# dashboard_solaris
+# Dashboard_solaris
 
 Aplikacja **Streamlit** do wizualizacji historycznych danych pomiarowych z baz **Microsoft SQL Server**. Umożliwia wybór bazy, tabeli i zmiennej, porównywanie kilku serii danych na jednym wykresie, analizę wartości AVG/MIN/MAX oraz ponowne pobieranie danych po zaznaczeniu fragmentu wykresu.
 
