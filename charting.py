@@ -60,42 +60,6 @@ def _format_dt(value):
     return value.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 
-def _interpolate_value(df, x):
-    """Zwraca interpolowaną wartość VALUE_AVG dla czasu X."""
-    if df is None or df.empty or x is None:
-        return None
-
-    if not {"time", "VALUE_AVG"}.issubset(df.columns):
-        return None
-
-    temp = pd.DataFrame(
-        {
-            "time": pd.to_datetime(df["time"], errors="coerce"),
-            "value": pd.to_numeric(df["VALUE_AVG"], errors="coerce"),
-        }
-    ).dropna()
-
-    if temp.empty:
-        return None
-
-    if isinstance(temp["time"].dtype, pd.DatetimeTZDtype):
-        temp["time"] = temp["time"].dt.tz_localize(None)
-
-    temp = temp.sort_values("time")
-
-    x = _to_naive_timestamp(x)
-
-    if x is None or not (temp["time"].iloc[0] <= x <= temp["time"].iloc[-1]):
-        return None
-
-    interpolated = np.interp(
-        x.value,
-        temp["time"].astype("int64").to_numpy(),
-        temp["value"].to_numpy(),
-    )
-
-    return None if pd.isna(interpolated) else float(interpolated)
-
 
 # Osie
 def _get_y_range(series):
@@ -402,8 +366,8 @@ def _series_index_from_curve(curve_number, show_minmax):
 def _add_marker_traces(fig, all_series, show_minmax, keys):
     """Dodaje widoczne markery M1/M2 do figury."""
     marker_definitions = [
-        (st.session_state.get(keys["marker_1"]), "M1", "#00e5ff"),
-        (st.session_state.get(keys["marker_2"]), "M2", "#ff3bd4"),
+        (st.session_state.get(keys["marker_1"]), "M1", "#32CD32"),
+        (st.session_state.get(keys["marker_2"]), "M2", "#FF3BD4"),
     ]
 
     for marker, label, color in marker_definitions:
@@ -457,7 +421,7 @@ def _add_marker_traces(fig, all_series, show_minmax, keys):
         )
 
         fig.add_vline(x=x, line_width=1, line_dash="dash", line_color=color, opacity=0.75)
-        fig.add_hline(y=y, line_width=1, line_dash="dash", line_color=color, opacity=0.75)
+        fig.add_hline(y=y, line_width=1, line_dash="dash", line_color=color, opacity=0.75,yref=yaxis_ref,)
 
 
 # Tabele
