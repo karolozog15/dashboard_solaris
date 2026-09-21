@@ -3,7 +3,8 @@
 from datetime import timezone, timedelta
 
 LOCAL_TZ = timezone(timedelta(hours=1))		# Lokalna strefa czasowa używana w aplikacji (UTC+1)
-MAX_PLOT_POINTS = 10_000			# Maksymalna liczba przedziałów, na które dzielony jest zaznaczony zakres czasu
+MAX_PLOT_POINTS = 2_000			# Maksymalna liczba przedziałów, na które dzielony jest zaznaczony zakres czasu
+MAX_TABLE_ROWS= 2_000
 DATA_CACHE_TTL = 300				# Czas przechowywania w pamięci podręcznej pobranych danych z bazy (5 minut)
 VARIABLE_CACHE_TTL = 600			# Czas przechowywania w pamięci podręcznej listy zmiennych (10 minut)
 TABLE_CACHE_TTL = 600				# Czas przechowywania w pamięci podręcznej listy tabel (10 minut)
