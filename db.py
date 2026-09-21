@@ -19,14 +19,23 @@ from config import (
 # żeby nie trzeba było za każdym razem łączyć się od nowa
 pyodbc.pooling = True
 
-def quote_identifier(value) -> str:
-    """Bezpieczne cytowanie nazwy schematu/tabeli."""
-    return "[" + str(value) + "]"
+def quote_identifier(value: str) -> str:
+    """Safely quote a SQL Server identifier."""
+    value = str(value).strip()
+
+    if not value:
+        raise ValueError("SQL identifier cannot be empty")
+
+    if "]" in value:
+        raise ValueError(f"Invalid SQL identifier: {value!r}")
+
+    return f"[{value}]"
 
 
 def get_connection(database: str | None = None):
-    """Polaczenie z baza danych. Bez podania `database` łączy się na 'master'"""
+    """Open a pooled SQL Server connection."""
     db = database or "master"
+
     connection_string = (
         f"DRIVER={{{DB_DRIVER}}};"
         f"SERVER={DB_SERVER};"
@@ -35,7 +44,11 @@ def get_connection(database: str | None = None):
         "Encrypt=no;"
         "Connection Timeout=10;"
     )
-    return pyodbc.connect(connection_string)
+
+    return pyodbc.connect(
+        connection_string,
+        autocommit=True,
+    )
 
 
 @st.cache_data(ttl=TABLE_CACHE_TTL, max_entries=1)	#Zapisywanie w pamieci podrcznej
@@ -125,29 +138,52 @@ def load_data(
     query = f"""
         WITH filtered AS (
             SELECT
-                VARIABLE, CALCULATION, TIMESTAMP_S, TIMESTAMP_MS, VALUE, STATUS, GUID, STRVALUE,
-                (CAST(TIMESTAMP_S AS BIGINT) * 1000 + COALESCE(CAST(TIMESTAMP_MS AS BIGINT), 0)) AS timestamp_ms_total --polaczenie s i ms w jeden timestamp w ms
+                VARIABLE,
+                CALCULATION,
+                TIMESTAMP_S,
+                TIMESTAMP_MS,
+                VALUE,
+                STATUS,
+                GUID,
+                STRVALUE,
+                (
+                    CAST(TIMESTAMP_S AS BIGINT) * 1000
+                    + COALESCE(CAST(TIMESTAMP_MS AS BIGINT), 0)
+                ) AS timestamp_ms_total
             FROM {full_table_name}
-            WHERE VARIABLE = ?		--wybrana zmienna
-              AND TIMESTAMP_S >= ?	--poczatek wybranego zakresu czasu
-              AND TIMESTAMP_S <= ?	--koniec wybranego zakresu
+            WHERE VARIABLE = ?
+              AND TIMESTAMP_S >= ?
+              AND TIMESTAMP_S <= ?
         ),
         bounds AS (
-            SELECT MIN(timestamp_ms_total) AS min_timestamp_ms, MAX(timestamp_ms_total) AS max_timestamp_ms --najwczesniejszy i najpozniejszy czas sposrod pobranych rekorodwo
+            SELECT
+                MIN(timestamp_ms_total) AS min_timestamp_ms,
+                MAX(timestamp_ms_total) AS max_timestamp_ms
             FROM filtered
         ),
         bucketed AS (
             SELECT
-                f.*,	--wszystkie kolumny zfiltred
+                f.VARIABLE,
+                f.CALCULATION,
+                f.VALUE,
+                f.STATUS,
+                f.GUID,
+                f.STRVALUE,
+                f.timestamp_ms_total,
                 CASE
-                    WHEN b.max_timestamp_ms = b.min_timestamp_ms THEN 0 --jezeli wszystkie reokrdy maja ten sam czas do trafiaja do przedzialu 0
+                    WHEN b.max_timestamp_ms = b.min_timestamp_ms THEN 0
                     ELSE FLOOR(
-                        (f.timestamp_ms_total - b.min_timestamp_ms) * 1.0
-                        / NULLIF(b.max_timestamp_ms - b.min_timestamp_ms, 0) * ? --okreslenie numeru bucketu i kazdej danej przypsiany jest jej bucket
+                        (
+                            f.timestamp_ms_total - b.min_timestamp_ms
+                        ) * 1.0
+                        / NULLIF(
+                            b.max_timestamp_ms - b.min_timestamp_ms,
+                            0
+                        ) * ?
                     )
                 END AS bucket
-            FROM filtered f
-            CROSS JOIN bounds b --dodanie rzeczy z bounds do kazdego rekorud potrzebne zeby liczyc powyzej
+            FROM filtered AS f
+           CROSS JOIN bounds AS b
         ),
         aggregated AS (
             SELECT
@@ -155,7 +191,7 @@ def load_data(
                 AVG(VALUE) AS VALUE_AVG,
                 MIN(VALUE) AS VALUE_MIN,
                 MAX(VALUE) AS VALUE_MAX,
-                MIN(timestamp_ms_total) AS bucket_min_timestamp,	--min i max time w kazdym buckecie
+                MIN(timestamp_ms_total) AS bucket_min_timestamp,
                 MAX(timestamp_ms_total) AS bucket_max_timestamp,
                 MIN(CALCULATION) AS CALCULATION,
                 MIN(STATUS) AS STATUS,
@@ -164,14 +200,25 @@ def load_data(
                 bucket
             FROM bucketed
             WHERE VALUE IS NOT NULL
-            GROUP BY VARIABLE, bucket		--grupowane bucketami
+            GROUP BY VARIABLE, bucket
         )
         SELECT
             VARIABLE,
             CALCULATION,
-            CAST((bucket_min_timestamp + bucket_max_timestamp) / 2 / 1000 AS BIGINT) AS TIMESTAMP_S, --powrot do podzialu na s i ms
-            CAST(((bucket_min_timestamp + bucket_max_timestamp) / 2) % 1000 AS INT) AS TIMESTAMP_MS,
-            VALUE_AVG, VALUE_MIN, VALUE_MAX, STATUS, GUID, STRVALUE
+            CAST(
+                (bucket_min_timestamp + bucket_max_timestamp) / 2 / 1000
+                AS BIGINT
+            ) AS TIMESTAMP_S,
+            CAST(
+                ((bucket_min_timestamp + bucket_max_timestamp) / 2) % 1000
+                AS INT
+            ) AS TIMESTAMP_MS,
+            VALUE_AVG,
+            VALUE_MIN,
+            VALUE_MAX,
+            STATUS,
+            GUID,
+            STRVALUE
         FROM aggregated
         ORDER BY TIMESTAMP_S ASC, TIMESTAMP_MS ASC;
     """
@@ -207,6 +254,9 @@ def load_data(
         df[column] = pd.to_numeric(df[column], errors="coerce")
 
     df = df.dropna(subset=["time", "VALUE_AVG"])
-    df = df.sort_values(["time", "TIMESTAMP_MS"]).reset_index(drop=True)
+    df = df.sort_values(
+        ["time", "TIMESTAMP_MS"],
+        kind="stable",
+    ).reset_index(drop=True)
 
     return df
