@@ -107,7 +107,11 @@ def _chart_keys(chart_key):
         "chart",
         "reset_markers",
     ]
-    return {name: _widget_key(chart_key, name) for name in names}
+    keys = {name: _widget_key(chart_key, name) for name in names}
+    keys["chart"] = _widget_key(
+        chart_key, f"chart_{st.session_state.get('chart_key_version', 0)}"
+    )
+    return keys
 
 
 # Czas i wartości
@@ -282,8 +286,10 @@ def _build_figure(all_series, start_time, end_time, show_minmax, all_axes_left, 
         margin=dict(l=60, r=60, t=30, b=40),
     )
 
-    fig.update_layout({"uirevision": "keep"}, overwrite=True)
-
+    fig.update_layout(
+        {"uirevision": st.session_state.get("chart_key_version", 0)},
+        overwrite=True,
+    )
     return fig
 
 
