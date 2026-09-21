@@ -80,6 +80,9 @@ def init_session_state() -> None:
     if "custom_end_clock" not in st.session_state:
         st.session_state.custom_end_clock = st.session_state.time_end_original.time()
 
+    if "zoom_history" not in st.session_state:
+        st.session_state.zoom_history = []
+
 
     if "_last_database" not in st.session_state:
         st.session_state._last_database = None
@@ -183,8 +186,15 @@ def handle_zoom_box_select(box_x: list) -> bool:
     if new_start > new_end:
         new_start, new_end = new_end, new_start
 
-    if not st.session_state.zoom_active:
+    if st.session_state.zoom_active:
+        # kolejny zoom z rzędu, więc zapamiętaj zakres sprzed tego zoomu
+        st.session_state.zoom_history.append(
+            (st.session_state.time_start, st.session_state.time_end)
+        )
+    else:
+        # pierwszy zoom, a bazą jest time_*_original
         st.session_state.pre_zoom_range_mode = st.session_state.range_mode
+        st.session_state.zoom_history = []
 
     st.session_state.last_processed_box = box_signature
     st.session_state.time_start = new_start.replace(tzinfo=LOCAL_TZ)
@@ -192,10 +202,20 @@ def handle_zoom_box_select(box_x: list) -> bool:
     st.session_state.zoom_active = True
     return True
 
-
 def undo_zoom() -> None:
-    """Przywraca dokładnie ten range_mode i zakres, który obowiązywał
-    w chwili wejścia w zoom."""
+    """Cofa jeden poziom zoomu. Gdy nie ma już pośrednich poziomów,
+    przywraca pierwotny range_mode i zakres."""
+    history = st.session_state.zoom_history
+
+    if history:
+        prev_start, prev_end = history.pop()
+        st.session_state.time_start = prev_start
+        st.session_state.time_end = prev_end
+        st.session_state.last_processed_box = None
+        st.session_state.chart_key_version += 1   # resetuje zaznaczenie boxa w widżecie
+        return
+
+    # ostatni krok: pełne przywrócenie (Twój dotychczasowy kod)
     restore_mode = st.session_state.pre_zoom_range_mode or st.session_state.range_mode
 
     st.session_state.range_mode = restore_mode
