@@ -200,6 +200,7 @@ def handle_zoom_box_select(box_x: list) -> bool:
     st.session_state.time_start = new_start.replace(tzinfo=LOCAL_TZ)
     st.session_state.time_end = new_end.replace(tzinfo=LOCAL_TZ)
     st.session_state.zoom_active = True
+    st.session_state.chart_key_version += 1
     return True
 
 def undo_zoom() -> None:
