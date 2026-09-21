@@ -4,7 +4,13 @@ from datetime import datetime, timedelta
 
 import streamlit as st
 
-from config import DEFAULT_DB_NAME, MAX_SERIES, LOCAL_TZ, get_series_color
+from config import (
+    DEFAULT_DB_NAME,
+    MAX_SERIES,
+    MAX_TABLE_ROWS,
+    LOCAL_TZ,
+    get_series_color,
+)
 from db import (
     load_databases,
     load_tables,
@@ -230,7 +236,7 @@ if st.session_state.zoom_active:
 
 #Fragment w html aby ikonek orygianlnych uzyc 
 
-st.sidebar.markdown("**Opis funkcji:** (prawy górny róg wykresu)")
+st.sidebar.markdown("**Opis funkcji:**")
 zoom_icon_svg = """
 <svg viewBox="0 0 1000 1000" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
     <path d="m1000-25l-250 251c40 63 63 138 63 218 0 224-182 406-407 406-224 0-406-182-406-406s183-406 407-406c80 0 155 22 218 62l250-250 125 125z m-812 250l0 438 437 0 0-438-437 0z m62 375l313 0 0-312-313 0 0 312z"
@@ -250,12 +256,12 @@ st.sidebar.markdown(
     <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.9rem;">
         <div style="display: flex; gap: 8px; align-items: flex-start;">
             <div style="flex-shrink: 0; margin-top: 2px;">{zoom_icon_svg}</div>
-            <span><b>Zoom</b> — Szybkie przybliżenie - bez pobierania danych.</span>
+            <span><b>Zoom (LPM)</b> — Szybkie przybliżenie - bez pobierania danych.</span>
         </div>
         <div style="display: flex; gap: 8px; align-items: flex-start;">
             <div style="flex-shrink: 0; margin-top: 2px;">{box_select_icon_svg}</div>
             <span>
-                <b>Box select</b> — Zaznaczony fragment zostanie zapisany jako nowy
+                <b>Box select (PPM)</b> — Zaznaczony fragment zostanie zapisany jako nowy
                 zakres czasu i dane zostaną pobrane na nowo z bazy z większą dokładnością.
             </span>
         </div>
@@ -408,11 +414,48 @@ chart_fragment = make_chart_fragment(refresh_seconds)
 chart_fragment(loaded_series, start_time, end_time)
 
 #wartrosci liczbowe w tabeli
-with st.expander("📋 Pokaż dane zagregowane"):
+show_data_table = st.checkbox(
+    "📋 Pokaż dane zagregowane",
+    value=False,
+)
+
+if show_data_table:
     data_tabs = st.tabs([s["label"] for s in loaded_series])
+
     for tab, s in zip(data_tabs, loaded_series):
         with tab:
             if s["df"].empty:
                 st.info("Brak rekordów w wybranym zakresie.")
-            else:
-                st.dataframe(s["df"].sort_values("time", ascending=False), use_container_width=True)
+                continue
+
+            display_columns = [
+                "time",
+                "VALUE_AVG",
+                "VALUE_MIN",
+                "VALUE_MAX",
+                "STATUS",
+                "STRVALUE",
+            ]
+
+            display_columns = [
+                column
+                for column in display_columns
+                if column in s["df"].columns
+            ]
+
+            display_df = (
+                s["df"]
+                .loc[:, display_columns]
+                .sort_values("time", ascending=False)
+                .head(MAX_TABLE_ROWS)
+            )
+
+            st.caption(
+                f"Pokazano maksymalnie {MAX_TABLE_ROWS:,} najnowszych rekordów."
+            )
+
+            st.dataframe(
+                display_df,
+                use_container_width=True,
+                hide_index=True,
+            )
