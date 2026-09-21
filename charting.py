@@ -201,6 +201,8 @@ def _build_figure(all_series, start_time, end_time, show_minmax, all_axes_left, 
         margin=dict(l=60, r=60, t=30, b=40),
     )
 
+    fig.update_layout({"uirevision": "keep"}, overwrite=True)
+
     return fig
 
 
@@ -558,6 +560,9 @@ def _render_chart_body(all_series, start_time, end_time, chart_key="main_chart")
 
     with col_opt3:
         markers_enabled = st.checkbox("📍 Markery klikane", key=keys["markers_enabled"])
+
+    if not markers_enabled:
+        _reset_markers(keys)
 
     fig = _build_figure(
         all_series, start_time, end_time, show_minmax, all_axes_left, markers_enabled
