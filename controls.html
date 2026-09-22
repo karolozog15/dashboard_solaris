@@ -1,0 +1,103 @@
+<script>
+(function () {
+
+    var p = window.parent;
+
+    if (p._plotlyControlsInstalled) {
+        return;
+    }
+
+    p._plotlyControlsInstalled = true;
+
+    var script = p.document.createElement('script');
+
+    script.textContent = `
+
+        (function () {
+          var state = null;
+
+          function mouseEvt(type, x, y, buttons) {
+            return new MouseEvent(type, {
+            bubbles: true, cancelable: true, view: window,
+            clientX: x, clientY: y, screenX: x, screenY: y,
+            button: 0, buttons: buttons
+            });
+          }
+
+          function setMode(gd, mode) {
+            var b = gd.querySelector('.modebar-btn[data-attr="dragmode"][data-val="' + mode + '"]');
+            if (b) { b.click(); }
+            else { console.warn('setMode: nie znaleziono przycisku dla', mode); }
+          }
+
+          document.addEventListener('contextmenu', function (e) {
+            if (e.target.closest && e.target.closest('.js-plotly-plot')) { e.preventDefault(); }
+          }, true);
+
+          document.addEventListener('mousedown', function (e) {
+            if (!e.isTrusted || (e.button !== 2 && e.button !== 1)) return;
+            var gd = e.target.closest && e.target.closest('.js-plotly-plot');
+            if (!gd || !e.target.closest('.draglayer')) return;
+
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            var st = { gd: gd, x: e.clientX, y: e.clientY, ready: false };
+            state = st;
+            if(e.button==2) {
+                setMode(gd, 'select');
+            } else if (e.button==1){
+                setMode(gd, 'pan');
+            } else {
+                setMode(gd, 'zoom');
+            }
+
+            // dajemy Plotly chwilę na przełączenie trybu, potem startujemy "lewy" drag
+            setTimeout(function () {
+              if (state !== st) return;
+              var t = document.elementFromPoint(st.x, st.y);
+              if (!t) return;
+              t.dispatchEvent(mouseEvt('mousedown', st.x, st.y, 0));
+              st.ready = true;
+            }, 80);
+          }, true);
+
+
+
+          document.addEventListener('mousemove', function (e) {
+            if (!state || !state.ready || !e.isTrusted) return;
+            e.stopImmediatePropagation();
+            e.target.dispatchEvent(mouseEvt('mousemove', e.clientX, e.clientY, 0));
+          }, true);
+
+          document.addEventListener('mouseup', function (e) {
+            if (!state || !e.isTrusted || (e.button !== 2 && e.button !== 1)) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            var st = state;
+            state = null;
+            if (st.ready) {
+              e.target.dispatchEvent(mouseEvt('mouseup', e.clientX, e.clientY, 0));
+            }
+            setTimeout(function () { setMode(st.gd, 'zoom'); }, 50);
+          }, true);
+  
+          document.addEventListener('keydown', function (e) {
+            if(e.code !== "Space") return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            var plots = document.querySelectorAll('.js-plotly-plot');
+            plots.forEach(function (tt) {
+              var space = tt.querySelector('.modebar-btn[data-attr="zoom"][data-val="auto"]');
+              if (space) space.click(); 
+            });
+          }, true);
+        })();
+
+    `;
+
+    p.document.head.appendChild(script);
+
+})();
+</script>
