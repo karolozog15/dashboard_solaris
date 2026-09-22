@@ -10,6 +10,10 @@ from config import (
     MAX_TABLE_ROWS,
     LOCAL_TZ,
     get_series_color,
+    zoom_icon_svg,
+    box_select_icon_svg,
+    pan_select_icon_svg,
+    autozoom_icon_svg,
 )
 from db import (
     load_databases,
@@ -213,6 +217,38 @@ if not series_configs:
     st.stop()
 
 
+#Fragment w html aby ikonek orygianlnych uzyc 
+
+st.sidebar.markdown("**Opis funkcji:**")
+
+st.sidebar.markdown(
+    f"""
+    <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.9rem;">
+        <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <div style="flex-shrink: 0; margin-top: 3px;">{autozoom_icon_svg}</div>
+            <span><b>Autozoom (Spacebar)</b> — Automatyczne dostosowanie wykresu do szerokosci okna.</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <div style="flex-shrink: 0; margin-top: 3px;">{zoom_icon_svg}</div>
+            <span><b>Zoom (LPM)</b> — Szybkie przybliżenie - bez pobierania danych.</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <div style="flex-shrink: 0; margin-to: 3px;">{pan_select_icon_svg}</div>
+            <span>
+                <b>Pan (ŚPM)</b> — Przesuwanie wykresu
+            </span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <div style="flex-shrink: 0; margin-top: 3px; margin-bottom: 10px;">{box_select_icon_svg}</div>
+            <span>
+                <b>Box select (PPM)</b> — Zaznaczony fragment zostanie zapisany jako nowy
+                zakres czasu i dane zostaną pobrane na nowo z bazy z większą dokładnością.
+            </span>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 # Zakres czasu
 st.sidebar.subheader("⏱️ Zakres czasu")
 #informacje na panelu
@@ -234,41 +270,6 @@ if st.session_state.zoom_active:
 
 
 
-#Fragment w html aby ikonek orygianlnych uzyc 
-
-st.sidebar.markdown("**Opis funkcji:**")
-zoom_icon_svg = """
-<svg viewBox="0 0 1000 1000" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
-    <path d="m1000-25l-250 251c40 63 63 138 63 218 0 224-182 406-407 406-224 0-406-182-406-406s183-406 407-406c80 0 155 22 218 62l250-250 125 125z m-812 250l0 438 437 0 0-438-437 0z m62 375l313 0 0-312-313 0 0 312z"
-          transform="matrix(1 0 0 -1 0 850)"
-          style="fill: rgba(255, 255, 255, 0.7);" />
-</svg>
-"""
-box_select_icon_svg = """
-<svg viewBox="0 0 1000 1000" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
-    <path d="m0 850l0-143 143 0 0 143-143 0z m286 0l0-143 143 0 0 143-143 0z m285 0l0-143 143 0 0 143-143 0z m286 0l0-143 143 0 0 143-143 0z m-857-286l0-143 143 0 0 143-143 0z m857 0l0-143 143 0 0 143-143 0z m-857-285l0-143 143 0 0 143-143 0z m857 0l0-143 143 0 0 143-143 0z m-857-286l0-143 143 0 0 143-143 0z m286 0l0-143 143 0 0 143-143 0z m285 0l0-143 143 0 0 143-143 0z m286 0l0-143 143 0 0 143-143 0z"
-          transform="matrix(1 0 0 -1 0 850)"
-          style="fill: rgba(255, 255, 255, 0.7);" />
-</svg>
-"""
-st.sidebar.markdown(
-    f"""
-    <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.9rem;">
-        <div style="display: flex; gap: 8px; align-items: flex-start;">
-            <div style="flex-shrink: 0; margin-top: 2px;">{zoom_icon_svg}</div>
-            <span><b>Zoom (LPM)</b> — Szybkie przybliżenie - bez pobierania danych.</span>
-        </div>
-        <div style="display: flex; gap: 8px; align-items: flex-start;">
-            <div style="flex-shrink: 0; margin-top: 2px;">{box_select_icon_svg}</div>
-            <span>
-                <b>Box select (PPM)</b> — Zaznaczony fragment zostanie zapisany jako nowy
-                zakres czasu i dane zostaną pobrane na nowo z bazy z większą dokładnością.
-            </span>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
 
 #Wybor trybu zakresu czasu do pobrania danych
 if st.session_state.zoom_active:
@@ -404,10 +405,7 @@ if not loaded_series:
 series_desc = "  |  ".join(
     f"`{s['schema']}.{s['table']}` → `{s['label']}`" for s in loaded_series
 )
-st.info(
-    f"📊 **Serie:** {series_desc}  |  "
-    f"⏱️ **Zakres:** `{start_time:%Y-%m-%d %H:%M:%S}` → `{end_time:%Y-%m-%d %H:%M:%S}`"
-)
+
 
 #rysowanie
 chart_fragment = make_chart_fragment(refresh_seconds)
