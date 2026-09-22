@@ -10,83 +10,12 @@ from state import handle_zoom_box_select
 import json
 import streamlit.components.v1 as components
 
-_RIGHT_DRAG_CODE = """
-(function () {
-  var state = null;
 
-  function mouseEvt(type, x, y, buttons) {
-    return new MouseEvent(type, {
-      bubbles: true, cancelable: true, view: window,
-      clientX: x, clientY: y, screenX: x, screenY: y,
-      button: 0, buttons: buttons
-    });
-  }
+def install_controls():
 
-  function setMode(gd, mode) {
-    var b = gd.querySelector('.modebar-btn[data-attr="dragmode"][data-val="' + mode + '"]');
-    if (b) { b.click(); }
-    else return;
-  }
+    with open("controls.html", "r", encoding="utf-8") as f:
+        html = f.read()
 
-  document.addEventListener('contextmenu', function (e) {
-    if (e.target.closest && e.target.closest('.js-plotly-plot')) { e.preventDefault(); }
-  }, true);
-
-  document.addEventListener('mousedown', function (e) {
-    if (!e.isTrusted || e.button !== 2) return;
-    var gd = e.target.closest && e.target.closest('.js-plotly-plot');
-    if (!gd || !e.target.closest('.draglayer')) return;
-
-    e.preventDefault();
-    e.stopImmediatePropagation();
-
-    var st = { gd: gd, x: e.clientX, y: e.clientY, ready: false };
-    state = st;
-    setMode(gd, 'select');
-
-    // dajemy Plotly chwilę na przełączenie trybu, potem startujemy "lewy" drag
-    setTimeout(function () {
-      if (state !== st) return;
-      var t = document.elementFromPoint(st.x, st.y);
-      if (!t) return;
-      t.dispatchEvent(mouseEvt('mousedown', st.x, st.y, 1));
-      st.ready = true;
-    }, 80);
-  }, true);
-
-  document.addEventListener('mousemove', function (e) {
-    if (!state || !state.ready || !e.isTrusted) return;
-    e.stopImmediatePropagation();
-    e.target.dispatchEvent(mouseEvt('mousemove', e.clientX, e.clientY, 1));
-  }, true);
-
-  document.addEventListener('mouseup', function (e) {
-    if (!state || !e.isTrusted || e.button !== 2) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-
-    var st = state;
-    state = null;
-    if (st.ready) {
-      e.target.dispatchEvent(mouseEvt('mouseup', e.clientX, e.clientY, 0));
-    }
-    setTimeout(function () { setMode(st.gd, 'zoom'); }, 50);
-  }, true);
-})();
-"""
-
-
-def _install_right_drag_box_select():
-    html = (
-        "<script>(function(){"
-        "const p = window.parent;"
-        "if (p._box) return;"
-        "p._box = true;"
-        "const s = p.document.createElement('script');"
-        "s.textContent = " + json.dumps(_RIGHT_DRAG_CODE) + ";"
-        "p.document.head.appendChild(s);"
-        "})();</script>"
-    )
     components.html(html, height=0)
 
 # Klucze widgetów i stanów
@@ -629,7 +558,7 @@ def make_chart_fragment(refresh_seconds, chart_key="main_chart"):
 def _render_chart_body(all_series, start_time, end_time, chart_key="main_chart"):
     """Treść fragmentu wykresu."""
     st.subheader("📈 Wartość w czasie")
-    _install_right_drag_box_select()
+    install_controls()
 
     keys = _chart_keys(chart_key)
 
