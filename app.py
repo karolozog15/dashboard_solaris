@@ -33,6 +33,8 @@ from state import (
 )
 from charting import make_chart_fragment
 
+import streamlit as st
+
 st.set_page_config(page_title="Wizualizacja bazy danych", page_icon="📈", layout="wide")
 
 init_session_state()
@@ -117,6 +119,7 @@ for idx, series_id in enumerate(st.session_state.series_ids):
             table_options,
             index=table_index,
             key=f"table_{series_id}",
+            filter_mode = "contains",
         )
 	
         s_schema, s_table = table_choice.split(".", 1)
@@ -143,6 +146,7 @@ for idx, series_id in enumerate(st.session_state.series_ids):
                 index=var_index,
                 format_func=lambda v: get_variable_label(v, variable_names),
                 key=f"var_{series_id}",
+                filter_mode = "contains",
             )
 	    
             #wybor jak ma byc dopasowywyan os y
@@ -431,8 +435,6 @@ if show_data_table:
                 "VALUE_AVG",
                 "VALUE_MIN",
                 "VALUE_MAX",
-                "STATUS",
-                "STRVALUE",
             ]
 
             display_columns = [
