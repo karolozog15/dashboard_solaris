@@ -134,16 +134,20 @@ def _axis_for_series(series_idx, label, color, y_range, all_axes_left, domain_st
 
 # Budowanie dashboardu
 def _add_series_trace(fig, x, y, yaxis, customdata, *, name, color, width, value_label,
-                       dash=None, opacity=1.0, markers=False, showlegend=True):
+                       dash=None, opacity=1.0, markers=False, marker_opacity=None, showlegend=True):
     fig.add_trace(
-        go.Scatter(
+        go.Scattergl(
             x=x,
             y=y,
             mode="lines+markers" if markers else "lines",
             name=name,
             line=dict(color=color, width=width, dash=dash),
-            marker=dict(size=5, color=color) if markers else None,
-            opacity=opacity,
+            marker=dict(
+                size=5,
+                color=color,
+                opacity=marker_opacity if marker_opacity is not None else 1.0,
+            ) if markers else None,
+            opacity=opacity,        # to nadal kontroluje linię (i marker też, ale mnożąc się z marker_opacity)
             yaxis=yaxis,
             customdata=customdata,
             showlegend=showlegend,
@@ -183,13 +187,15 @@ def _build_figure(all_series, start_time, end_time, show_minmax, all_axes_left, 
             _add_series_trace(
                 fig, data["time"], data["VALUE_MIN"], yaxis_ref, customdata,
                 name=f"MIN — {label}", color=color, width=1, dash="dot",
-                opacity=0.4, showlegend=False, value_label="MIN",
+                opacity=0.4, markers=True, marker_opacity=0.0005, showlegend=False, value_label="MIN",
             )
+            
             _add_series_trace(
                 fig, data["time"], data["VALUE_MAX"], yaxis_ref, customdata,
                 name=f"MAX — {label}", color=color, width=1, dash="dot",
-                opacity=0.4, showlegend=False, value_label="MAX",
+                opacity=0.4, markers=True, marker_opacity=0.0005, showlegend=False, value_label="MIN",
             )
+
 
         _add_series_trace(
             fig, data["time"], data["VALUE_AVG"], yaxis_ref, customdata,
@@ -421,7 +427,7 @@ def _add_marker_traces(fig, all_series, show_minmax, keys):
             pass
 
         fig.add_trace(
-            go.Scatter(
+            go.Scattergl(
                 x=[x],
                 y=[y],
                 mode="markers+text",
@@ -601,7 +607,7 @@ def _render_chart_body(all_series, start_time, end_time, chart_key="main_chart")
     _render_summary_table(all_series)
 
     chart_config = {
-        "doubleClick": "reset+autosize",
+        "doubleClick": "False",
         "displaylogo": False,
         "scrollZoom": True,
     }
